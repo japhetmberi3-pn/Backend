@@ -9,6 +9,9 @@ class ProductPurchasedNotification extends Notification
 {
     use Queueable;
 
+    /**
+     * Créer une nouvelle notification.
+     */
     public function __construct(
         public int $productId,
         public string $productName,
@@ -31,10 +34,13 @@ class ProductPurchasedNotification extends Notification
     {
         return [
             'type' => 'product_purchased',
-            'message' => "Le produit « {$this->productName} » a été acheté.",
+            'message' => 'Vous avez acheté le produit "' .
+                $this->productName .
+                '" avec succès.',
             'product_id' => $this->productId,
             'product_name' => $this->productName,
             'quantity' => $this->quantity,
         ];
     }
 }
+
