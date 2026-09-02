@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use App\Notifications\ProductPurchasedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,14 +19,18 @@ class OrderController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($request, $validated) {
-            $product = Product::lockForUpdate()->findOrFail($validated['product_id']);
+            $product = Product::lockForUpdate()->findOrFail(
+                $validated['product_id']
+            );
 
             if ($product->stock < $validated['quantity']) {
                 abort(422, 'Stock insuffisant.');
             }
 
+            $client = $request->user();
+
             $order = Order::create([
-                'user_id' => $request->user()->id,
+                'user_id' => $client->id,
                 'product_id' => $product->id,
                 'quantity' => $validated['quantity'],
                 'status' => 'completed',
@@ -33,13 +38,29 @@ class OrderController extends Controller
 
             $product->decrement('stock', $validated['quantity']);
 
-            $request->user()->notify(
+            // Notification du client
+            $client->notify(
                 new ProductPurchasedNotification(
                     $product->id,
                     $product->name,
-                    $validated['quantity']
+                    $validated['quantity'],
+                    $client->name
                 )
             );
+
+            // Notification de l'administrateur
+            $admin = User::where('role', 'admin')->first();
+
+            if ($admin) {
+                $admin->notify(
+                    new ProductPurchasedNotification(
+                        $product->id,
+                        $product->name,
+                        $validated['quantity'],
+                        $client->name
+                    )
+                );
+            }
 
             return $order;
         });

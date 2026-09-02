@@ -15,7 +15,8 @@ class ProductPurchasedNotification extends Notification
     public function __construct(
         public int $productId,
         public string $productName,
-        public int $quantity
+        public int $quantity,
+        public string $clientName
     ) {
     }
 
@@ -32,15 +33,20 @@ class ProductPurchasedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $message = $notifiable->role === 'admin'
+            ? $this->clientName . ' a acheté le produit "' .
+                $this->productName . '".'
+            : 'Vous avez acheté le produit "' .
+                $this->productName .
+                '" avec succès.';
+
         return [
             'type' => 'product_purchased',
-            'message' => 'Vous avez acheté le produit "' .
-                $this->productName .
-                '" avec succès.',
+            'message' => $message,
+            'client_name' => $this->clientName,
             'product_id' => $this->productId,
             'product_name' => $this->productName,
             'quantity' => $this->quantity,
         ];
     }
 }
-
