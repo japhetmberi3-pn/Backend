@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Conversation;
+use App\Models\Message;
 
 #[Fillable(['name', 'email', 'password', 'role'])]
 #[Hidden(['password', 'remember_token'])]
@@ -28,6 +30,32 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_seen_at' => 'datetime',
         ];
+    }
+
+    // Conversations où l'utilisateur est le client
+    public function conversationsAsUser()
+    {
+        return $this->hasMany(Conversation::class, 'user_id');
+    }
+
+    // Conversations où l'utilisateur est l'administrateur
+    public function conversationsAsAdmin()
+    {
+        return $this->hasMany(Conversation::class, 'admin_id');
+    }
+
+    // Messages envoyés par l'utilisateur
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    // Vérifie si l'utilisateur est en ligne
+    public function isOnline(): bool
+    {
+        return $this->last_seen_at !== null
+            && $this->last_seen_at->greaterThanOrEqualTo(now()->subMinutes(5));
     }
 }

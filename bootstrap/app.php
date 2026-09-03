@@ -4,6 +4,7 @@ use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\UpdateLastSeen;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -13,9 +14,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__ . '/../routes/channels.php',
+        [
+            'prefix' => 'api',
+            'middleware' => ['api', 'auth:sanctum'],
+        ],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => AdminMiddleware::class,
+            'last.seen' => UpdateLastSeen::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
