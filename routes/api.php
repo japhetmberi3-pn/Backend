@@ -8,6 +8,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\ShopController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -109,4 +110,17 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     Route::post('/cart', [CartController::class, 'store']);
     Route::patch('/cart/items/{item}', [CartController::class, 'update']);
     Route::delete('/cart/items/{item}', [CartController::class, 'destroy']);
+
+    // =========================
+    // BOUTIQUES
+    // =========================
+
+    // Voir toutes les boutiques
+    Route::get('/shops', [ShopController::class, 'all']);
+
+    // Voir ma boutique
+    Route::get('/shop', [ShopController::class, 'index']);
+
+    // Créer ma boutique
+    Route::post('/shop', [ShopController::class, 'store']);
 });

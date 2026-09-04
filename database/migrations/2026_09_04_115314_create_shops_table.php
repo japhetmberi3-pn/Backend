@@ -11,25 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('products', function (Blueprint $table) {
+        Schema::create('shops', function (Blueprint $table) {
             $table->id();
 
-            // Utilisateur qui a créé le produit
+            // Vendeur propriétaire de la boutique
             $table->foreignId('user_id')
                 ->constrained()
-                ->onDelete('cascade');
+                ->cascadeOnDelete();
 
-            // Boutique à laquelle appartient le produit
-            $table->foreignId('shop_id')
-                ->constrained('shops')
-                ->onDelete('cascade');
-
+            // Informations de la boutique
             $table->string('name');
             $table->text('description')->nullable();
-            $table->decimal('price', 10, 2);
-            $table->integer('stock');
 
             $table->timestamps();
+
+            // Un vendeur ne peut avoir qu'une seule boutique
+            $table->unique('user_id');
         });
     }
 
@@ -38,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('shops');
     }
 };

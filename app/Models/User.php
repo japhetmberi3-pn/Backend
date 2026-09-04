@@ -13,6 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Shop;
 
 #[Fillable(['name', 'email', 'password', 'role'])]
 #[Hidden(['password', 'remember_token'])]
@@ -64,4 +65,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(Cart::class);
     }
+
+    public function shop(): HasOne
+    {
+        return $this->hasOne(Shop::class);
+    }
+
 }
