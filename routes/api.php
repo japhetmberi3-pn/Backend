@@ -7,6 +7,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CartController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -20,11 +21,9 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     // PRODUITS
     // =========================
 
-    // Produits accessibles aux utilisateurs connectés
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{product}', [ProductController::class, 'show']);
 
-    // Produits réservés à l'administrateur
     Route::middleware('admin')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{product}', [ProductController::class, 'update']);
@@ -53,7 +52,7 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     // Liste des administrateurs disponibles
     Route::get('/admins', [ConversationController::class, 'admins']);
 
-    // Liste des conversations de l'utilisateur connecté
+    // Liste des conversations
     Route::get('/conversations', [ConversationController::class, 'index']);
 
     // Créer une conversation
@@ -61,6 +60,18 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
     // Afficher une conversation
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
+
+    // Marquer toute une conversation comme lue
+    Route::patch(
+        '/conversations/{conversation}/read',
+        [MessageController::class, 'markConversationAsRead']
+    );
+
+    // Supprimer toute une conversation
+    Route::delete(
+        '/conversations/{conversation}',
+        [ConversationController::class, 'destroy']
+    );
 
     // =========================
     // MESSAGES
@@ -89,4 +100,13 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         '/messages/{message}',
         [MessageController::class, 'destroy']
     );
+
+    // =========================
+    // PANIER
+    // =========================
+
+    Route::get('/cart', [CartController::class, 'index']);
+    Route::post('/cart', [CartController::class, 'store']);
+    Route::patch('/cart/items/{item}', [CartController::class, 'update']);
+    Route::delete('/cart/items/{item}', [CartController::class, 'destroy']);
 });
