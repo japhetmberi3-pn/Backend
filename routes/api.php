@@ -9,9 +9,14 @@ use App\Http\Controllers\MessageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\GoogleAuthController;
+use Illuminate\Http\Request;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect']);
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
 Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
@@ -110,6 +115,7 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     Route::post('/cart', [CartController::class, 'store']);
     Route::patch('/cart/items/{item}', [CartController::class, 'update']);
     Route::delete('/cart/items/{item}', [CartController::class, 'destroy']);
+    
 
     // =========================
     // BOUTIQUES
@@ -123,4 +129,11 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
     // Créer ma boutique
     Route::post('/shop', [ShopController::class, 'store']);
+
+});
+
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return response()->json([
+        'user' => $request->user(),
+    ]);
 });

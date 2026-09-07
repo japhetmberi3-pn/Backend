@@ -15,7 +15,7 @@ use App\Models\Message;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\Shop;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'google_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -70,5 +70,4 @@ class User extends Authenticatable
     {
         return $this->hasOne(Shop::class);
     }
-
 }
