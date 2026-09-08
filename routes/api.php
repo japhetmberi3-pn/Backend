@@ -41,6 +41,8 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     // =========================
 
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{order}', [OrderController::class, 'show']);
 
     // =========================
     // NOTIFICATIONS
@@ -129,6 +131,8 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
     // Créer ma boutique
     Route::post('/shop', [ShopController::class, 'store']);
+
+    Route::get('/shops/{shop}', [ShopController::class, 'show']);
 
 });
 

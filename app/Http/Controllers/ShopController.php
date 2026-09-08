@@ -65,4 +65,11 @@ class ShopController extends Controller
             'shop' => $shop,
         ], 201);
     }
+
+    public function show(Shop $shop)
+    {
+        $shop->load('products');
+
+        return response()->json($shop);
+    }
 }

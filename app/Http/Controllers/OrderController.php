@@ -13,106 +13,189 @@ use Illuminate\Support\Facades\DB;
 class OrderController extends Controller
 {
     /**
-     * Acheter plusieurs articles sélectionnés du panier.
+     * Afficher les commandes du client connecté.
+     */
+    public function index(Request $request)
+    {
+        $orders = $request->user()
+            ->orders()
+            ->with('items.product')
+            ->latest()
+            ->get();
+
+        return response()->json($orders);
+    }
+
+    /**
+     * Afficher une commande spécifique.
+     */
+    public function show(Request $request, Order $order)
+    {
+        if ($order->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Vous n’êtes pas autorisé à voir cette commande.'
+            ], 403);
+        }
+
+        return response()->json(
+            $order->load('items.product')
+        );
+    }
+
+    /**
+     * Créer une commande directement depuis la page Commandes.
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-        ]);
+        // Récupérer les données envoyées par Next.js
+        $items = $request->input('items');
+
+        // Vérifier que items existe
+        if (!is_array($items) || count($items) === 0) {
+            return response()->json([
+                'message' => 'Le champ items est obligatoire et doit contenir au moins un article.',
+                'received' => $request->all(),
+            ], 422);
+        }
+
+        // Vérifier chaque article
+        foreach ($items as $index => $item) {
+
+            if (!isset($item['product_id'])) {
+                return response()->json([
+                    'message' => "Le product_id est manquant pour l'article " . ($index + 1) . ".",
+                ], 422);
+            }
+
+            if (!isset($item['quantity'])) {
+                return response()->json([
+                    'message' => "La quantity est manquante pour l'article " . ($index + 1) . ".",
+                ], 422);
+            }
+
+            if (!is_numeric($item['product_id'])) {
+                return response()->json([
+                    'message' => "Le product_id doit être un nombre.",
+                ], 422);
+            }
+
+            if (!is_numeric($item['quantity']) || $item['quantity'] < 1) {
+                return response()->json([
+                    'message' => "La quantité doit être supérieure ou égale à 1.",
+                ], 422);
+            }
+
+            if (!Product::where('id', $item['product_id'])->exists()) {
+                return response()->json([
+                    'message' => "Le produit ID {$item['product_id']} n'existe pas.",
+                ], 422);
+            }
+        }
 
         $client = $request->user();
 
-        $order = DB::transaction(function () use ($validated, $client) {
+        try {
 
-            // Récupérer le panier du client
-            $cart = Cart::where('user_id', $client->id)
-                ->first();
+            $order = DB::transaction(function () use ($items, $client) {
 
-            if (!$cart) {
-                abort(422, 'Votre panier est vide.');
-            }
-
-            // Créer la commande
-            $order = Order::create([
-                'user_id' => $client->id,
-                'status' => 'completed',
-            ]);
-
-            foreach ($validated['items'] as $itemData) {
-
-                // Vérifier que le produit appartient bien au panier
-                $cartItem = $cart->items()
-                    ->where('product_id', $itemData['product_id'])
-                    ->first();
-
-                if (!$cartItem) {
-                    abort(
-                        422,
-                        'Le produit ID ' . $itemData['product_id'] . ' n’est pas dans votre panier.'
-                    );
-                }
-
-                // Vérifier le stock
-                $product = Product::lockForUpdate()
-                    ->findOrFail($itemData['product_id']);
-
-                if ($product->stock < $itemData['quantity']) {
-                    abort(
-                        422,
-                        'Stock insuffisant pour le produit "' . $product->name . '".'
-                    );
-                }
-
-                // Vérifier que la quantité demandée
-                // ne dépasse pas celle du panier
-                if ($itemData['quantity'] > $cartItem->quantity) {
-                    abort(
-                        422,
-                        'La quantité demandée pour "' . $product->name .
-                        '" dépasse la quantité présente dans le panier.'
-                    );
-                }
-
-                // Ajouter le produit à la commande
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'quantity' => $itemData['quantity'],
-                    'price' => $product->price,
+                /*
+                 * Créer la commande
+                 */
+                $order = Order::create([
+                    'user_id' => $client->id,
+                    'status' => 'pending',
                 ]);
 
-                // Retirer du stock
-                $product->decrement('stock', $itemData['quantity']);
+                /*
+                 * Récupérer le panier s'il existe.
+                 *
+                 * Le panier n'est plus obligatoire.
+                 */
+                $cart = Cart::where('user_id', $client->id)
+                    ->first();
 
-                // Si toute la quantité du panier est achetée,
-                // supprimer complètement l'article du panier.
-                if ($itemData['quantity'] == $cartItem->quantity) {
-                    $cartItem->delete();
-                } else {
-                    // Sinon, diminuer seulement la quantité.
-                    $cartItem->decrement(
-                        'quantity',
+                foreach ($items as $itemData) {
+
+                    /*
+                     * Verrouiller le produit pendant
+                     * toute la transaction.
+                     */
+                    $product = Product::lockForUpdate()
+                        ->find($itemData['product_id']);
+
+                    if (!$product) {
+                        abort(
+                            422,
+                            'Le produit demandé n’existe plus.'
+                        );
+                    }
+
+                    /*
+                     * Vérifier le stock
+                     */
+                    if ($product->stock < $itemData['quantity']) {
+                        abort(
+                            422,
+                            'Stock insuffisant pour le produit "' .
+                            $product->name .
+                            '". Stock disponible : ' .
+                            $product->stock .
+                            '.'
+                        );
+                    }
+
+                    /*
+                     * Ajouter l'article à la commande
+                     */
+                    $order->items()->create([
+                        'product_id' => $product->id,
+                        'quantity' => $itemData['quantity'],
+                        'price' => $product->price,
+                    ]);
+
+                    /*
+                     * Diminuer le stock
+                     */
+                    $product->decrement(
+                        'stock',
                         $itemData['quantity']
                     );
-                }
 
-                // Notification du client
-                $client->notify(
-                    new ProductPurchasedNotification(
-                        $product->id,
-                        $product->name,
-                        $itemData['quantity'],
-                        $client->name
-                    )
-                );
+                    /*
+                     * Si le produit existe également
+                     * dans le panier, on ajuste le panier.
+                     *
+                     * Mais le panier n'est PAS obligatoire.
+                     */
+                    if ($cart) {
 
-                // Notification de l'administrateur
-                $admin = User::where('role', 'admin')->first();
+                        $cartItem = $cart->items()
+                            ->where(
+                                'product_id',
+                                $product->id
+                            )
+                            ->first();
 
-                if ($admin) {
-                    $admin->notify(
+                        if ($cartItem) {
+
+                            if (
+                                $itemData['quantity'] >=
+                                $cartItem->quantity
+                            ) {
+                                $cartItem->delete();
+                            } else {
+                                $cartItem->decrement(
+                                    'quantity',
+                                    $itemData['quantity']
+                                );
+                            }
+                        }
+                    }
+
+                    /*
+                     * Notification du client
+                     */
+                    $client->notify(
                         new ProductPurchasedNotification(
                             $product->id,
                             $product->name,
@@ -120,15 +203,57 @@ class OrderController extends Controller
                             $client->name
                         )
                     );
+
+                    /*
+                     * Notification de l'administrateur
+                     */
+                    $admin = User::where(
+                        'role',
+                        'admin'
+                    )->first();
+
+                    if ($admin) {
+
+                        $admin->notify(
+                            new ProductPurchasedNotification(
+                                $product->id,
+                                $product->name,
+                                $itemData['quantity'],
+                                $client->name
+                            )
+                        );
+                    }
                 }
+
+                return $order;
+            });
+
+            /*
+             * Réponse envoyée à Next.js
+             */
+            return response()->json([
+                'message' => 'Achat effectué avec succès.',
+                'order' => $order->load('items.product'),
+            ], 201);
+
+        } catch (\Throwable $e) {
+
+            /*
+             * Erreur métier
+             */
+            if ($e->getCode() === 422) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                ], 422);
             }
 
-            return $order;
-        });
-
-        return response()->json([
-            'message' => 'Achat effectué avec succès.',
-            'order' => $order->load('items.product'),
-        ], 201);
+            /*
+             * Erreur serveur
+             */
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création de la commande.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

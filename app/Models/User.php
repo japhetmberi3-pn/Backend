@@ -14,6 +14,8 @@ use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\Shop;
+use App\Models\Order;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['name', 'email', 'password', 'role', 'google_id'])]
 #[Hidden(['password', 'remember_token'])]
@@ -61,13 +63,21 @@ class User extends Authenticatable
             && $this->last_seen_at->greaterThanOrEqualTo(now()->subMinutes(5));
     }
 
+    // Panier de l'utilisateur
     public function cart(): HasOne
     {
         return $this->hasOne(Cart::class);
     }
 
+    // Boutique de l'utilisateur
     public function shop(): HasOne
     {
         return $this->hasOne(Shop::class);
+    }
+
+    // Commandes de l'utilisateur
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 }

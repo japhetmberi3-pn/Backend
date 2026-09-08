@@ -1,0 +1,74 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#8270
+    [34mall[39m: [
+      [34;4mApp\Models\Order[39;24m {#8256
+        [34mid[39m: [35m6[39m,
+        [34muser_id[39m: [35m11[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8255
+        [34mid[39m: [35m7[39m,
+        [34muser_id[39m: [35m11[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8258
+        [34mid[39m: [35m8[39m,
+        [34muser_id[39m: [35m11[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8259
+        [34mid[39m: [35m9[39m,
+        [34muser_id[39m: [35m11[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8260
+        [34mid[39m: [35m10[39m,
+        [34muser_id[39m: [35m12[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8261
+        [34mid[39m: [35m11[39m,
+        [34muser_id[39m: [35m12[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8262
+        [34mid[39m: [35m12[39m,
+        [34muser_id[39m: [35m7[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8263
+        [34mid[39m: [35m13[39m,
+        [34muser_id[39m: [35m7[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8264
+        [34mid[39m: [35m14[39m,
+        [34muser_id[39m: [35m8[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8265
+        [34mid[39m: [35m15[39m,
+        [34muser_id[39m: [35m8[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8266
+        [34mid[39m: [35m16[39m,
+        [34muser_id[39m: [35m7[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8267
+        [34mid[39m: [35m17[39m,
+        [34muser_id[39m: [35m11[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8268
+        [34mid[39m: [35m18[39m,
+        [34muser_id[39m: [35m7[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+      [34;4mApp\Models\Order[39;24m {#8269
+        [34mid[39m: [35m19[39m,
+        [34muser_id[39m: [35m7[39m,
+        [34mstatus[39m: [32m"[39m[32mcompleted[39m[32m"[39m,
+      },
+    ],
+  }
