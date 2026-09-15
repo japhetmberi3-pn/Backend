@@ -1,0 +1,24 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#8761
+    [34mall[39m: [
+      [34;4mApp\Models\OrderItem[39;24m {#8738
+        [34mid[39m: [35m7[39m,
+        [34morder_id[39m: [35m6[39m,
+        [34mproduct_id[39m: [35m2[39m,
+        [34mquantity[39m: [35m1[39m,
+        [34mprice[39m: [32m"[39m[32m250000.00[39m[32m"[39m,
+        [34mcreated_at[39m: [32m"[39m[32m2026-09-15 09:00:48[39m[32m"[39m,
+        [34mupdated_at[39m: [32m"[39m[32m2026-09-15 09:00:48[39m[32m"[39m,
+        [34mproduct[39m: [34;4mApp\Models\Product[39;24m {#8754
+          [34mid[39m: [35m2[39m,
+          [34muser_id[39m: [35m3[39m,
+          [34mshop_id[39m: [35m1[39m,
+          [34mname[39m: [32m"[39m[32mIphone Pro 15[39m[32m"[39m,
+          [34mdescription[39m: [32m"[39m[32mApple[39m[32m"[39m,
+          [34mprice[39m: [32m"[39m[32m250000.00[39m[32m"[39m,
+          [34mstock[39m: [35m5[39m,
+          [34mcreated_at[39m: [32m"[39m[32m2026-09-14 10:11:09[39m[32m"[39m,
+          [34mupdated_at[39m: [32m"[39m[32m2026-09-15 09:00:48[39m[32m"[39m,
+        },
+      },
+    ],
+  }

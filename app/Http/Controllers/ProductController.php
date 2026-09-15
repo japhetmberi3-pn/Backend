@@ -8,40 +8,89 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     /**
-     * Afficher les produits.
-     *
-     * Admin  : tous les produits.
-     * Vendeur : uniquement les produits de sa boutique.
-     * Client  : tous les produits.
+ * Afficher les produits.
+ *
+ * Admin  : tous les produits.
+ * Vendeur : uniquement les produits de sa boutique.
+ * Client  : tous les produits.
+ *
+ * Recherche :
+ * ?q=chaussures
+ */
+public function index(Request $request)
+{
+    $user = $request->user();
+
+    // Recherche envoyée par le frontend
+    $search = trim($request->query('q', ''));
+
+    /*
+     * Construction de la requête de base.
      */
-    public function index(Request $request)
-    {
-        $user = $request->user();
+    $query = Product::with(['user', 'shop']);
 
-        // Vendeur : uniquement les produits de sa boutique
-        if (in_array($user->role, ['vendeur', 'seller'])) {
-            $shop = $user->shop;
+    /*
+     * VENDEUR
+     * ----------
+     * Un vendeur ne voit que les produits de sa boutique.
+     */
+    if (in_array($user->role, ['vendeur', 'seller'])) {
 
-            if (!$shop) {
-                return response()->json([]);
-            }
+        $shop = $user->shop;
 
-            $products = Product::with(['user', 'shop'])
-                ->where('shop_id', $shop->id)
-                ->latest()
-                ->get();
-
-            return response()->json($products);
+        if (!$shop) {
+            return response()->json([]);
         }
 
-        // Admin et client : tous les produits
+        $query->where('shop_id', $shop->id);
+    }
+
+    /*
+     * RECHERCHE
+     * ----------
+     * On recherche dans :
+     * - nom du produit
+     * - description
+     *
+     * Exemple :
+     * /api/products?q=iphone
+     */
+    if ($search !== '') {
+        $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', '%' . $search . '%')
+              ->orWhere('description', 'like', '%' . $search . '%');
+        });
+    }
+
+    /*
+     * Résultats les plus récents en premier.
+     */
+    $products = $query
+        ->latest()
+        ->get();
+
+    return response()->json($products);
+}
+    public function search(Request $request)
+    {
+        $query = trim($request->query('q', ''));
+
+        if ($query === '') {
+            return response()->json([]);
+        }
+
         $products = Product::with(['user', 'shop'])
+            ->where(function ($builder) use ($query) {
+                $builder
+                    ->where('name', 'like', "%{$query}%")
+                    ->orWhere('description', 'like', "%{$query}%");
+            })
             ->latest()
             ->get();
 
         return response()->json($products);
     }
-
+    
     /**
      * Créer un produit.
      *

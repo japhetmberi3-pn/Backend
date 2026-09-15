@@ -11,6 +11,15 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\GoogleAuthController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\SellerDashboardController;
+use App\Http\Controllers\ReviewController;
+
+/*
+|--------------------------------------------------------------------------
+| AUTHENTIFICATION
+|--------------------------------------------------------------------------
+*/
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -18,56 +27,194 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/auth/google', [GoogleAuthController::class, 'redirect']);
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
+
+/*
+|--------------------------------------------------------------------------
+| PRODUITS PUBLICS
+|--------------------------------------------------------------------------
+|
+| Ces routes peuvent être utilisées même sans connexion.
+|
+*/
+
+Route::get('/products/search', [ProductController::class, 'search']);
+Route::get('/products/{product}', [ProductController::class, 'show']);
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTES PROTÉGÉES
+|--------------------------------------------------------------------------
+*/
+
 Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
-    // Déconnexion
+    /*
+    |--------------------------------------------------------------------------
+    | DÉCONNEXION
+    |--------------------------------------------------------------------------
+    */
+
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // =========================
-    // PRODUITS
-    // =========================
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRODUITS
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{product}', [ProductController::class, 'show']);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN - GESTION DES PRODUITS
+    |--------------------------------------------------------------------------
+    */
 
     Route::middleware('admin')->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | DASHBOARD ADMIN
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/admin/dashboard',
+            [AdminDashboardController::class, 'dashboard']
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | GESTION DES PRODUITS
+        |--------------------------------------------------------------------------
+        */
+
         Route::post('/products', [ProductController::class, 'store']);
-        Route::put('/products/{product}', [ProductController::class, 'update']);
-        Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+
+        Route::put(
+            '/products/{product}',
+            [ProductController::class, 'update']
+        );
+
+        Route::delete(
+            '/products/{product}',
+            [ProductController::class, 'destroy']
+        );
     });
 
-    // =========================
-    // COMMANDES
-    // =========================
+
+    /*
+    |--------------------------------------------------------------------------
+    | DASHBOARD VENDEUR
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/seller/dashboard',
+        [SellerDashboardController::class, 'dashboard']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | AVIS ET ÉVALUATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    // Voir les avis d'un produit
+    Route::get(
+        '/products/{product}/reviews',
+        [ReviewController::class, 'index']
+    );
+
+    // Ajouter un avis à un produit
+    Route::post(
+        '/products/{product}/reviews',
+        [ReviewController::class, 'store']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMMANDES
+    |--------------------------------------------------------------------------
+    */
 
     Route::post('/orders', [OrderController::class, 'store']);
+
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{order}', [OrderController::class, 'show']);
 
-    // =========================
-    // NOTIFICATIONS
-    // =========================
+    Route::get(
+        '/orders/{order}',
+        [OrderController::class, 'show']
+    );
 
-    Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
-    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+    Route::patch(
+        '/orders/{order}/status',
+        [OrderController::class, 'updateStatus']
+    );
 
-    // =========================
-    // CONVERSATIONS
-    // =========================
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/notifications',
+        [NotificationController::class, 'index']
+    );
+
+    Route::patch(
+        '/notifications/{id}/read',
+        [NotificationController::class, 'markAsRead']
+    );
+
+    Route::patch(
+        '/notifications/read-all',
+        [NotificationController::class, 'markAllAsRead']
+    );
+
+    Route::delete(
+        '/notifications/{id}',
+        [NotificationController::class, 'destroy']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CONVERSATIONS
+    |--------------------------------------------------------------------------
+    */
 
     // Liste des administrateurs disponibles
-    Route::get('/admins', [ConversationController::class, 'admins']);
+    Route::get(
+        '/admins',
+        [ConversationController::class, 'admins']
+    );
 
     // Liste des conversations
-    Route::get('/conversations', [ConversationController::class, 'index']);
+    Route::get(
+        '/conversations',
+        [ConversationController::class, 'index']
+    );
 
     // Créer une conversation
-    Route::post('/conversations', [ConversationController::class, 'store']);
+    Route::post(
+        '/conversations',
+        [ConversationController::class, 'store']
+    );
 
     // Afficher une conversation
-    Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
+    Route::get(
+        '/conversations/{conversation}',
+        [ConversationController::class, 'show']
+    );
 
     // Marquer toute une conversation comme lue
     Route::patch(
@@ -81,9 +228,12 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         [ConversationController::class, 'destroy']
     );
 
-    // =========================
-    // MESSAGES
-    // =========================
+
+    /*
+    |--------------------------------------------------------------------------
+    | MESSAGES
+    |--------------------------------------------------------------------------
+    */
 
     // Liste des messages
     Route::get(
@@ -109,34 +259,78 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         [MessageController::class, 'destroy']
     );
 
-    // =========================
-    // PANIER
-    // =========================
 
-    Route::get('/cart', [CartController::class, 'index']);
-    Route::post('/cart', [CartController::class, 'store']);
-    Route::patch('/cart/items/{item}', [CartController::class, 'update']);
-    Route::delete('/cart/items/{item}', [CartController::class, 'destroy']);
-    
+    /*
+    |--------------------------------------------------------------------------
+    | PANIER
+    |--------------------------------------------------------------------------
+    */
 
-    // =========================
-    // BOUTIQUES
-    // =========================
+    // Voir mon panier
+    Route::get(
+        '/cart',
+        [CartController::class, 'index']
+    );
+
+    // Ajouter au panier
+    Route::post(
+        '/cart',
+        [CartController::class, 'store']
+    );
+
+    // Modifier une quantité
+    Route::patch(
+        '/cart/items/{item}',
+        [CartController::class, 'update']
+    );
+
+    // Supprimer un article
+    Route::delete(
+        '/cart/items/{item}',
+        [CartController::class, 'destroy']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | BOUTIQUES
+    |--------------------------------------------------------------------------
+    */
 
     // Voir toutes les boutiques
-    Route::get('/shops', [ShopController::class, 'all']);
+    Route::get(
+        '/shops',
+        [ShopController::class, 'all']
+    );
 
     // Voir ma boutique
-    Route::get('/shop', [ShopController::class, 'index']);
+    Route::get(
+        '/shop',
+        [ShopController::class, 'index']
+    );
 
     // Créer ma boutique
-    Route::post('/shop', [ShopController::class, 'store']);
+    Route::post(
+        '/shop',
+        [ShopController::class, 'store']
+    );
 
-    Route::get('/shops/{shop}', [ShopController::class, 'show']);
-
+    // Voir une boutique précise
+    Route::get(
+        '/shops/{shop}',
+        [ShopController::class, 'show']
+    );
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| UTILISATEUR CONNECTÉ
+|--------------------------------------------------------------------------
+*/
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+
     return response()->json([
         'user' => $request->user(),
     ]);
