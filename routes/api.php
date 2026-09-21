@@ -6,14 +6,16 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\GoogleAuthController;
-use Illuminate\Http\Request;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\SellerDashboardController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\ProfileController;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -60,6 +62,25 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | PROFIL
+    |--------------------------------------------------------------------------
+    */
+
+    // Modifier la photo de profil
+    Route::post(
+        '/profile/photo',
+        [ProfileController::class, 'updatePhoto']
+    );
+
+    // Supprimer la photo de profil
+    Route::delete(
+        '/profile/photo',
+        [ProfileController::class, 'deletePhoto']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
     | PRODUITS
     |--------------------------------------------------------------------------
     */
@@ -93,7 +114,10 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         |--------------------------------------------------------------------------
         */
 
-        Route::post('/products', [ProductController::class, 'store']);
+        Route::post(
+            '/products',
+            [ProductController::class, 'store']
+        );
 
         Route::put(
             '/products/{product}',
@@ -144,9 +168,15 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post(
+        '/orders',
+        [OrderController::class, 'store']
+    );
 
-    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get(
+        '/orders',
+        [OrderController::class, 'index']
+    );
 
     Route::get(
         '/orders/{order}',

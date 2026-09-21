@@ -24,7 +24,10 @@ class ConversationController extends Controller
             $query->where('users.id', $userId)
                 ->whereNotNull('conversation_user.deleted_at');
         })
-        ->with(['user', 'admin'])
+        ->with([
+            'user',
+            'admin',
+        ])
         ->withCount([
             'messages as unread_count' => function ($query) use ($userId) {
                 $query->whereNull('read_at')
@@ -34,15 +37,43 @@ class ConversationController extends Controller
         ->latest()
         ->get();
 
+        /*
+         * Ajouter les informations nécessaires au profil
+         * de chaque participant.
+         */
         $conversations->each(function ($conversation) {
+
             if ($conversation->user) {
                 $conversation->user->is_online =
                     $conversation->user->isOnline();
+
+                /*
+                 * S'assurer que l'URL de la photo est disponible
+                 * dans la réponse JSON.
+                 */
+                $conversation->user->profile_photo_url =
+                    $conversation->user->profile_photo
+                        ? asset(
+                            'storage/' .
+                            $conversation->user->profile_photo
+                        )
+                        : null;
             }
 
             if ($conversation->admin) {
                 $conversation->admin->is_online =
                     $conversation->admin->isOnline();
+
+                /*
+                 * Même chose pour l'administrateur.
+                 */
+                $conversation->admin->profile_photo_url =
+                    $conversation->admin->profile_photo
+                        ? asset(
+                            'storage/' .
+                            $conversation->admin->profile_photo
+                        )
+                        : null;
             }
         });
 
@@ -82,14 +113,12 @@ class ConversationController extends Controller
             ->first();
 
         if ($conversation) {
+
             /*
              * La conversation existe déjà.
              *
              * On la rend visible pour l'utilisateur,
              * mais on NE supprime PAS restart_at.
-             *
-             * Ainsi, s'il avait supprimé cette conversation,
-             * ses anciens messages restent masqués.
              */
             DB::table('conversation_user')
                 ->where('conversation_id', $conversation->id)
@@ -98,6 +127,40 @@ class ConversationController extends Controller
                     'deleted_at' => null,
                     'updated_at' => now(),
                 ]);
+
+            /*
+             * Recharger les utilisateurs avec leurs profils.
+             */
+            $conversation->load([
+                'user',
+                'admin'
+            ]);
+
+            if ($conversation->user) {
+                $conversation->user->is_online =
+                    $conversation->user->isOnline();
+
+                $conversation->user->profile_photo_url =
+                    $conversation->user->profile_photo
+                        ? asset(
+                            'storage/' .
+                            $conversation->user->profile_photo
+                        )
+                        : null;
+            }
+
+            if ($conversation->admin) {
+                $conversation->admin->is_online =
+                    $conversation->admin->isOnline();
+
+                $conversation->admin->profile_photo_url =
+                    $conversation->admin->profile_photo
+                        ? asset(
+                            'storage/' .
+                            $conversation->admin->profile_photo
+                        )
+                        : null;
+            }
 
             return response()->json([
                 'message' => 'Cette conversation existe déjà.',
@@ -109,6 +172,40 @@ class ConversationController extends Controller
             'user_id' => $userId,
             'admin_id' => $admin->id,
         ]);
+
+        /*
+         * Charger les profils immédiatement.
+         */
+        $conversation->load([
+            'user',
+            'admin'
+        ]);
+
+        if ($conversation->user) {
+            $conversation->user->is_online =
+                $conversation->user->isOnline();
+
+            $conversation->user->profile_photo_url =
+                $conversation->user->profile_photo
+                    ? asset(
+                        'storage/' .
+                        $conversation->user->profile_photo
+                    )
+                    : null;
+        }
+
+        if ($conversation->admin) {
+            $conversation->admin->is_online =
+                $conversation->admin->isOnline();
+
+            $conversation->admin->profile_photo_url =
+                $conversation->admin->profile_photo
+                    ? asset(
+                        'storage/' .
+                        $conversation->admin->profile_photo
+                    )
+                    : null;
+        }
 
         return response()->json([
             'message' => 'Conversation créée avec succès.',
@@ -165,11 +262,36 @@ class ConversationController extends Controller
         ]);
 
         /*
+         * Ajouter les informations de profil.
+         */
+        if ($conversation->user) {
+            $conversation->user->is_online =
+                $conversation->user->isOnline();
+
+            $conversation->user->profile_photo_url =
+                $conversation->user->profile_photo
+                    ? asset(
+                        'storage/' .
+                        $conversation->user->profile_photo
+                    )
+                    : null;
+        }
+
+        if ($conversation->admin) {
+            $conversation->admin->is_online =
+                $conversation->admin->isOnline();
+
+            $conversation->admin->profile_photo_url =
+                $conversation->admin->profile_photo
+                    ? asset(
+                        'storage/' .
+                        $conversation->admin->profile_photo
+                    )
+                    : null;
+        }
+
+        /*
          * Charger les messages.
-         *
-         * Si l'utilisateur a déjà supprimé la conversation
-         * dans le passé, on ne lui montre que les messages
-         * envoyés après restart_at.
          */
         $messagesQuery = $conversation->messages()
             ->with('sender');
@@ -187,16 +309,6 @@ class ConversationController extends Controller
             $messagesQuery->oldest()->get()
         );
 
-        if ($conversation->user) {
-            $conversation->user->is_online =
-                $conversation->user->isOnline();
-        }
-
-        if ($conversation->admin) {
-            $conversation->admin->is_online =
-                $conversation->admin->isOnline();
-        }
-
         return response()->json($conversation);
     }
 
@@ -210,9 +322,23 @@ class ConversationController extends Controller
                 'id',
                 'name',
                 'email',
-                'role'
+                'role',
+                'profile_photo'
             )
             ->get();
+
+        /*
+         * Ajouter l'URL publique de la photo.
+         */
+        $admins->each(function ($admin) {
+            $admin->profile_photo_url =
+                $admin->profile_photo
+                    ? asset(
+                        'storage/' .
+                        $admin->profile_photo
+                    )
+                    : null;
+        });
 
         return response()->json($admins);
     }
@@ -246,6 +372,7 @@ class ConversationController extends Controller
             ->first();
 
         if ($existing) {
+
             /*
              * On cache la conversation ET on mémorise
              * le moment où l'ancien historique doit s'arrêter.
@@ -258,6 +385,7 @@ class ConversationController extends Controller
                     'updated_at' => now(),
                 ]);
         } else {
+
             /*
              * Première suppression de cette conversation
              * pour cet utilisateur.

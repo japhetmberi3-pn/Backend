@@ -113,11 +113,16 @@ class OrderController extends Controller
 
     /**
      * Créer une commande.
+     *
+     * purchase = achat immédiat, sans livraison
+     * delivery = commande avec livraison
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            // Produits
+            // =========================================================
+            // PRODUITS
+            // =========================================================
             'items' => [
                 'required',
                 'array',
@@ -136,34 +141,53 @@ class OrderController extends Controller
                 'min:1',
             ],
 
-            // Destinataire
-            'recipient_name' => [
+            // =========================================================
+            // TYPE DE COMMANDE
+            // =========================================================
+            'order_type' => [
                 'required',
+                'in:purchase,delivery',
+            ],
+
+            // =========================================================
+            // DESTINATAIRE
+            // Obligatoire uniquement pour delivery
+            // =========================================================
+            'recipient_name' => [
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:255',
             ],
 
             'phone' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:30',
             ],
 
-            // Adresse
+            // =========================================================
+            // ADRESSE
+            // Obligatoire uniquement pour delivery
+            // =========================================================
             'city' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:255',
             ],
 
             'neighborhood' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:255',
             ],
 
             'address' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:1000',
             ],
@@ -174,20 +198,27 @@ class OrderController extends Controller
                 'max:1000',
             ],
 
-            // Position GPS
+            // =========================================================
+            // POSITION GPS
+            // Obligatoire uniquement pour delivery
+            // =========================================================
             'latitude' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'numeric',
                 'between:-90,90',
             ],
 
             'longitude' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'numeric',
                 'between:-180,180',
             ],
 
-            // Livraison
+            // =========================================================
+            // INFORMATIONS LIVRAISON
+            // =========================================================
             'delivery_note' => [
                 'nullable',
                 'string',
@@ -195,13 +226,15 @@ class OrderController extends Controller
             ],
 
             'delivery_date' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'date',
                 'after_or_equal:today',
             ],
 
             'delivery_time' => [
-                'required',
+                'required_if:order_type,delivery',
+                'nullable',
                 'string',
                 'max:50',
             ],
@@ -216,36 +249,53 @@ class OrderController extends Controller
                 $validated,
                 $client
             ) {
-                // Créer la commande
+                // =====================================================
+                // CRÉER LA COMMANDE
+                // =====================================================
                 $order = Order::create([
                     'user_id' => $client->id,
                     'status' => 'pending',
 
-                    'recipient_name' => $validated['recipient_name'],
-                    'phone' => $validated['phone'],
+                    // Type :
+                    // purchase = achat immédiat
+                    // delivery = livraison
+                    'order_type' => $validated['order_type'],
 
-                    'city' => $validated['city'],
-                    'neighborhood' => $validated['neighborhood'],
-                    'address' => $validated['address'],
+                    // Informations du destinataire
+                    'recipient_name' => $validated['recipient_name'] ?? null,
+                    'phone' => $validated['phone'] ?? null,
+
+                    // Adresse
+                    'city' => $validated['city'] ?? null,
+                    'neighborhood' => $validated['neighborhood'] ?? null,
+                    'address' => $validated['address'] ?? null,
                     'address_details' => $validated['address_details'] ?? null,
 
-                    'latitude' => $validated['latitude'],
-                    'longitude' => $validated['longitude'],
+                    // GPS
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
 
+                    // Informations complémentaires
                     'delivery_note' => $validated['delivery_note'] ?? null,
 
-                    'delivery_date' => $validated['delivery_date'],
-                    'delivery_time' => $validated['delivery_time'],
+                    // Livraison
+                    'delivery_date' => $validated['delivery_date'] ?? null,
+                    'delivery_time' => $validated['delivery_time'] ?? null,
                 ]);
 
-                // Récupérer le panier du client
+                // =====================================================
+                // RÉCUPÉRER LE PANIER DU CLIENT
+                // =====================================================
                 $cart = Cart::where(
                     'user_id',
                     $client->id
                 )->first();
 
-                // Traiter chaque produit
+                // =====================================================
+                // TRAITER CHAQUE PRODUIT
+                // =====================================================
                 foreach ($items as $itemData) {
+                    // Verrouiller le produit pendant la transaction
                     $product = Product::lockForUpdate()
                         ->find($itemData['product_id']);
 
@@ -258,7 +308,9 @@ class OrderController extends Controller
 
                     $quantity = $itemData['quantity'];
 
-                    // Vérifier le stock
+                    // =================================================
+                    // VÉRIFIER LE STOCK
+                    // =================================================
                     if ($product->stock < $quantity) {
                         abort(
                             422,
@@ -270,20 +322,26 @@ class OrderController extends Controller
                         );
                     }
 
-                    // Ajouter le produit à la commande
+                    // =================================================
+                    // AJOUTER LE PRODUIT À LA COMMANDE
+                    // =================================================
                     $order->items()->create([
                         'product_id' => $product->id,
                         'quantity' => $quantity,
                         'price' => $product->price,
                     ]);
 
-                    // Diminuer le stock
+                    // =================================================
+                    // DIMINUER LE STOCK
+                    // =================================================
                     $product->decrement(
                         'stock',
                         $quantity
                     );
 
-                    // Mettre à jour le panier
+                    // =================================================
+                    // METTRE À JOUR LE PANIER
+                    // =================================================
                     if ($cart) {
                         $cartItem = $cart->items()
                             ->where(
@@ -304,7 +362,9 @@ class OrderController extends Controller
                         }
                     }
 
-                    // Notification du client
+                    // =================================================
+                    // NOTIFICATION DU CLIENT
+                    // =================================================
                     $client->notify(
                         new ProductPurchasedNotification(
                             $product->id,
@@ -314,7 +374,9 @@ class OrderController extends Controller
                         )
                     );
 
-                    // Notification de l'administrateur
+                    // =================================================
+                    // NOTIFICATION DE L'ADMIN
+                    // =================================================
                     $admin = User::where(
                         'role',
                         'admin'
@@ -335,8 +397,12 @@ class OrderController extends Controller
                 return $order;
             });
 
+            // =========================================================
+            // RÉPONSE
+            // =========================================================
             return response()->json([
                 'message' => 'Commande créée avec succès.',
+
                 'order' => $order->load([
                     'user',
                     'items.product.user',
@@ -345,12 +411,15 @@ class OrderController extends Controller
             ], 201);
 
         } catch (\Throwable $e) {
+
+            // Erreur métier 422
             if ($e->getCode() === 422) {
                 return response()->json([
                     'message' => $e->getMessage(),
                 ], 422);
             }
 
+            // Erreur serveur
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création de la commande.',
                 'error' => $e->getMessage(),
@@ -420,6 +489,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Statut de la commande mis à jour avec succès.',
+
             'order' => $order->load([
                 'user',
                 'items.product.user',

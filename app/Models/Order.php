@@ -14,6 +14,7 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
+        'order_type',
 
         // Informations du destinataire
         'recipient_name',
