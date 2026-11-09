@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden([
     'password',
     'remember_token',
+    'google_id',
 ])]
 class User extends Authenticatable
 {

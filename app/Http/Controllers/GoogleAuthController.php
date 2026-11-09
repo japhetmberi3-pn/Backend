@@ -29,25 +29,62 @@ class GoogleAuthController extends Controller
                 ->stateless()
                 ->user();
 
-            // 2. Créer le compte ShopX ou mettre à jour
-            //    le compte existant correspondant à l'email.
-            $user = User::updateOrCreate(
-                [
-                    'email' => $googleUser->getEmail(),
-                ],
-                [
-                    'name' => $googleUser->getName(),
-                    'google_id' => $googleUser->getId(),
-                    'password' => str()->random(32),
-                ]
-            );
+            // 2. Refuser les emails non vérifiés par Google :
+            //    sinon on pourrait se connecter au compte d'autrui.
+            $email = $googleUser->getEmail();
+            $googleId = (string) $googleUser->getId();
 
-            // 3. Générer le token Sanctum
+            if (
+                !$email ||
+                !$googleId ||
+                !filter_var(
+                    $googleUser->user['email_verified'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                )
+            ) {
+                return $this->redirectToFrontendWithError();
+            }
+
+            // 3. Retrouver le compte (par google_id, sinon par email).
+            $user = User::where('google_id', $googleId)->first()
+                ?? User::where('email', $email)->first();
+
+            if (!$user) {
+                $user = User::create([
+                    'name' => $googleUser->getName() ?: $email,
+                    'email' => $email,
+                    'google_id' => $googleId,
+                    'password' => str()->random(64),
+                ]);
+            } elseif (!$user->google_id) {
+                // Première liaison d'un compte existant à Google.
+                // Si l'email n'avait jamais été vérifié, le compte a pu
+                // être créé par quelqu'un d'autre avec cet email :
+                // on invalide son mot de passe et ses sessions.
+                if (!$user->email_verified_at) {
+                    $user->tokens()->delete();
+                    $user->password = str()->random(64);
+                }
+
+                $user->google_id = $googleId;
+            } elseif ($user->google_id !== $googleId) {
+                // L'email appartient déjà à un autre compte Google.
+                return $this->redirectToFrontendWithError();
+            }
+
+            // Google a vérifié l'email.
+            if (!$user->email_verified_at) {
+                $user->email_verified_at = now();
+            }
+
+            $user->save();
+
+            // 4. Générer le token Sanctum
             $token = $user
                 ->createToken('auth_token')
                 ->plainTextToken;
 
-            // 4. Rediriger l'utilisateur vers Next.js
+            // 5. Rediriger l'utilisateur vers Next.js
             return $this->redirectToFrontend($token);
 
         } catch (\Throwable $exception) {
