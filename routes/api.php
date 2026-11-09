@@ -108,7 +108,7 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         Route::get(
             '/admin/dashboard',
             [AdminDashboardController::class, 'dashboard']
-        );
+        )->middleware('admin:admin');
 
 
         /*

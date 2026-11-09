@@ -27,7 +27,7 @@ public function index(Request $request)
     /*
      * Construction de la requête de base.
      */
-    $query = Product::with(['user', 'shop']);
+    $query = Product::with([Product::PUBLIC_USER, 'shop']);
 
     /*
      * VENDEUR
@@ -79,7 +79,7 @@ public function index(Request $request)
             return response()->json([]);
         }
 
-        $products = Product::with(['user', 'shop'])
+        $products = Product::with([Product::PUBLIC_USER, 'shop'])
             ->where(function ($builder) use ($query) {
                 $builder
                     ->where('name', 'like', "%{$query}%")
@@ -131,7 +131,7 @@ public function index(Request $request)
 
             return response()->json([
                 'message' => 'Produit créé avec succès.',
-                'product' => $product->load(['user', 'shop']),
+                'product' => $product->load([Product::PUBLIC_USER, 'shop']),
             ], 201);
         }
 
@@ -155,7 +155,7 @@ public function index(Request $request)
 
         return response()->json([
             'message' => 'Produit créé avec succès.',
-            'product' => $product->load(['user', 'shop']),
+            'product' => $product->load([Product::PUBLIC_USER, 'shop']),
         ], 201);
     }
 
@@ -165,7 +165,7 @@ public function index(Request $request)
     public function show(Product $product)
     {
         return response()->json(
-            $product->load(['user', 'shop'])
+            $product->load([Product::PUBLIC_USER, 'shop'])
         );
     }
 
@@ -215,7 +215,7 @@ public function index(Request $request)
 
         return response()->json([
             'message' => 'Produit modifié avec succès.',
-            'product' => $product->load(['user', 'shop']),
+            'product' => $product->load([Product::PUBLIC_USER, 'shop']),
         ]);
     }
 

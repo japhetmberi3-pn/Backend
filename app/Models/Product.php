@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    /**
+     * Champs du vendeur visibles publiquement.
+     */
+    public const PUBLIC_USER = 'user:id,name,email,role,profile_photo';
+
     use HasFactory;
 
     protected $fillable = [

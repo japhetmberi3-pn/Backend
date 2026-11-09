@@ -13,19 +13,25 @@ class AdminMiddleware
      */
     public function handle(
         Request $request,
-        Closure $next
+        Closure $next,
+        string ...$roles
     ): Response {
         $user = $request->user();
+
+        // Par défaut : admin et vendeurs.
+        // "admin:admin" limite la route aux seuls administrateurs.
+        $roles = $roles ?: ['admin', 'vendeur', 'seller'];
 
         if (
             !$user ||
             !in_array(
                 $user->role,
-                ['admin', 'vendeur', 'seller']
+                $roles,
+                true
             )
         ) {
             return response()->json([
-                'message' => 'Accès interdit. Réservé aux administrateurs et aux vendeurs.',
+                'message' => 'Accès interdit.',
             ], 403);
         }
 

@@ -24,8 +24,8 @@ class OrderController extends Controller
         $user = $request->user();
 
         $query = Order::with([
-            'user',
-            'items.product.user',
+            'user:id,name,email,role,profile_photo',
+            'items.product.user:id,name,email,role,profile_photo',
             'items.product.shop',
         ])->latest();
 
@@ -42,6 +42,12 @@ class OrderController extends Controller
             $query->whereHas('items.product', function ($productQuery) use ($user) {
                 $productQuery->where('user_id', $user->id);
             });
+
+            // Le vendeur ne voit que ses propres articles,
+            // pas ceux des autres vendeurs de la même commande.
+            $query->with([
+                'items' => $this->onlySellerItems($user->id),
+            ]);
         }
 
         // ADMIN
@@ -102,13 +108,39 @@ class OrderController extends Controller
             ], 403);
         }
 
+        $relations = [
+            'user:id,name,email,role,profile_photo',
+            'items.product.user:id,name,email,role,profile_photo',
+            'items.product.shop',
+        ];
+
+        // Le vendeur ne voit que ses propres articles.
+        if (
+            $user->role === 'vendeur' ||
+            $user->role === 'seller'
+        ) {
+            $relations['items'] = $this->onlySellerItems($user->id);
+        }
+
         return response()->json(
-            $order->load([
-                'user',
-                'items.product.user',
-                'items.product.shop',
-            ])
+            $order->load($relations)
         );
+    }
+
+    /**
+     * Restreint les articles d'une commande
+     * à ceux d'un vendeur donné.
+     */
+    private function onlySellerItems(int $sellerId): \Closure
+    {
+        return function ($itemsQuery) use ($sellerId) {
+            $itemsQuery->whereHas(
+                'product',
+                function ($productQuery) use ($sellerId) {
+                    $productQuery->where('user_id', $sellerId);
+                }
+            );
+        };
     }
 
     /**
@@ -404,25 +436,30 @@ class OrderController extends Controller
                 'message' => 'Commande créée avec succès.',
 
                 'order' => $order->load([
-                    'user',
-                    'items.product.user',
+                    'user:id,name,email,role,profile_photo',
+                    'items.product.user:id,name,email,role,profile_photo',
                     'items.product.shop',
                 ]),
             ], 201);
 
         } catch (\Throwable $e) {
 
-            // Erreur métier 422
-            if ($e->getCode() === 422) {
+            // Erreur métier 422 (déclenchée par abort(422, ...))
+            if (
+                $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface &&
+                $e->getStatusCode() === 422
+            ) {
                 return response()->json([
                     'message' => $e->getMessage(),
                 ], 422);
             }
 
-            // Erreur serveur
+            // Erreur serveur : détail dans les logs,
+            // jamais dans la réponse (requêtes SQL, chemins...).
+            report($e);
+
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création de la commande.',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -491,8 +528,8 @@ class OrderController extends Controller
             'message' => 'Statut de la commande mis à jour avec succès.',
 
             'order' => $order->load([
-                'user',
-                'items.product.user',
+                'user:id,name,email,role,profile_photo',
+                'items.product.user:id,name,email,role,profile_photo',
                 'items.product.shop',
             ]),
         ]);
