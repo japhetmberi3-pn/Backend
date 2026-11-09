@@ -228,6 +228,12 @@ Route::middleware(['auth:sanctum', 'last.seen'])->group(function () {
         [ConversationController::class, 'admins']
     );
 
+    // Liste des vendeurs disponibles
+    Route::get(
+        '/sellers',
+        [ConversationController::class, 'sellers']
+    );
+
     // Liste des conversations
     Route::get(
         '/conversations',

@@ -13,12 +13,42 @@ use App\Events\MessageDeleted;
 class MessageController extends Controller
 {
     /**
+     * Vérifie que l'utilisateur connecté
+     * participe bien à la conversation.
+     */
+    private function isParticipant(
+        Conversation $conversation,
+        int $userId
+    ): bool {
+        return $conversation
+            ->participants()
+            ->where('users.id', $userId)
+            ->exists();
+    }
+
+    /**
+     * Récupère l'autre participant de la conversation.
+     *
+     * Une conversation ShopX contient actuellement
+     * exactement deux participants.
+     */
+    private function getOtherParticipant(
+        Conversation $conversation,
+        int $userId
+    ) {
+        return $conversation
+            ->participants()
+            ->where('users.id', '!=', $userId)
+            ->first();
+    }
+
+    /**
      * Afficher les messages d'une conversation.
      *
      * Si l'utilisateur a supprimé la conversation dans le passé,
      * il ne voit que les messages envoyés après son restart_at.
      *
-     * L'autre utilisateur conserve tout l'historique.
+     * L'autre utilisateur conserve tout son historique.
      */
     public function index(
         Request $request,
@@ -26,13 +56,14 @@ class MessageController extends Controller
     ) {
         $userId = $request->user()->id;
 
-        // Vérifier que l'utilisateur appartient à la conversation
-        if (
-            $conversation->user_id !== $userId &&
-            $conversation->admin_id !== $userId
-        ) {
+        /*
+         * Vérifier que l'utilisateur participe
+         * à cette conversation.
+         */
+        if (!$this->isParticipant($conversation, $userId)) {
             return response()->json([
-                'message' => 'Vous n’avez pas accès à cette conversation.'
+                'message' =>
+                    'Vous n’avez pas accès à cette conversation.'
             ], 403);
         }
 
@@ -41,10 +72,19 @@ class MessageController extends Controller
          * doit revoir les messages.
          */
         $restartAt = DB::table('conversation_user')
-            ->where('conversation_id', $conversation->id)
-            ->where('user_id', $userId)
+            ->where(
+                'conversation_id',
+                $conversation->id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
             ->value('restart_at');
 
+        /*
+         * Préparer la requête des messages.
+         */
         $query = Message::where(
             'conversation_id',
             $conversation->id
@@ -79,17 +119,20 @@ class MessageController extends Controller
     ) {
         $userId = $request->user()->id;
 
-        // Vérifier que l'utilisateur appartient à la conversation
-        if (
-            $conversation->user_id !== $userId &&
-            $conversation->admin_id !== $userId
-        ) {
+        /*
+         * Vérifier que l'utilisateur participe
+         * à la conversation.
+         */
+        if (!$this->isParticipant($conversation, $userId)) {
             return response()->json([
-                'message' => 'Vous n’avez pas accès à cette conversation.'
+                'message' =>
+                    'Vous n’avez pas accès à cette conversation.'
             ], 403);
         }
 
-        // Vérifier le contenu du message
+        /*
+         * Vérifier le contenu du message.
+         */
         $validated = $request->validate([
             'message' => [
                 'required',
@@ -100,19 +143,37 @@ class MessageController extends Controller
 
         /*
          * Identifier l'autre participant.
+         *
+         * Cela fonctionne maintenant pour :
+         *
+         * Client  ↔ Admin
+         * Client  ↔ Vendeur
+         * Vendeur ↔ Admin
          */
-        $otherUserId =
-            $conversation->user_id === $userId
-                ? $conversation->admin_id
-                : $conversation->user_id;
+        $otherUser = $this->getOtherParticipant(
+            $conversation,
+            $userId
+        );
+
+        if (!$otherUser) {
+            return response()->json([
+                'message' =>
+                    'Le participant destinataire est introuvable.'
+            ], 422);
+        }
 
         /*
          * Créer le nouveau message.
          */
         $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender_id' => $userId,
-            'message' => $validated['message'],
+            'conversation_id' =>
+                $conversation->id,
+
+            'sender_id' =>
+                $userId,
+
+            'message' =>
+                $validated['message'],
         ]);
 
         /*
@@ -122,16 +183,17 @@ class MessageController extends Controller
          * IMPORTANT :
          * on efface uniquement deleted_at.
          *
-         * On NE touche PAS à restart_at.
-         *
-         * Ainsi :
-         * - la conversation réapparaît ;
-         * - les anciens messages restent masqués
-         *   chez celui qui avait supprimé la conversation.
+         * restart_at reste inchangé.
          */
         DB::table('conversation_user')
-            ->where('conversation_id', $conversation->id)
-            ->where('user_id', $otherUserId)
+            ->where(
+                'conversation_id',
+                $conversation->id
+            )
+            ->where(
+                'user_id',
+                $otherUser->id
+            )
             ->whereNotNull('deleted_at')
             ->update([
                 'deleted_at' => null,
@@ -140,14 +202,19 @@ class MessageController extends Controller
 
         /*
          * Si l'expéditeur avait lui-même supprimé
-         * la conversation auparavant, on la réactive aussi
-         * pour lui.
+         * la conversation auparavant, on la réactive aussi.
          *
          * restart_at reste inchangé.
          */
         DB::table('conversation_user')
-            ->where('conversation_id', $conversation->id)
-            ->where('user_id', $userId)
+            ->where(
+                'conversation_id',
+                $conversation->id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
             ->whereNotNull('deleted_at')
             ->update([
                 'deleted_at' => null,
@@ -162,11 +229,16 @@ class MessageController extends Controller
         /*
          * Envoyer le message en temps réel.
          */
-        broadcast(new MessageSent($message));
+        broadcast(
+            new MessageSent($message)
+        );
 
         return response()->json([
-            'message' => 'Message envoyé avec succès.',
-            'data' => $message
+            'message' =>
+                'Message envoyé avec succès.',
+
+            'data' =>
+                $message
         ], 201);
     }
 
@@ -177,55 +249,83 @@ class MessageController extends Controller
         Request $request,
         Message $message
     ) {
-        // Vérifier que l'utilisateur appartient à la conversation
-        if (
-            $message->conversation->user_id !== $request->user()->id &&
-            $message->conversation->admin_id !== $request->user()->id
-        ) {
+        $userId = $request->user()->id;
+
+        /*
+         * Récupérer la conversation du message.
+         */
+        $conversation = $message->conversation;
+
+        /*
+         * Vérifier que l'utilisateur participe
+         * à la conversation.
+         */
+        if (!$this->isParticipant($conversation, $userId)) {
             return response()->json([
-                'message' => 'Vous n’avez pas accès à ce message.'
+                'message' =>
+                    'Vous n’avez pas accès à ce message.'
             ], 403);
         }
 
-        // L'expéditeur ne peut pas marquer son propre message comme lu
-        if ($message->sender_id === $request->user()->id) {
+        /*
+         * L'expéditeur ne peut pas marquer
+         * son propre message comme lu.
+         */
+        if ($message->sender_id === $userId) {
             return response()->json([
-                'message' => 'Vous ne pouvez pas marquer votre propre message comme lu.'
+                'message' =>
+                    'Vous ne pouvez pas marquer votre propre message comme lu.'
             ], 403);
         }
 
-        // Marquer le message comme lu
+        /*
+         * Marquer le message comme lu.
+         */
         $message->update([
             'read_at' => now(),
         ]);
 
-        // Informer l'autre utilisateur en temps réel
-        broadcast(new MessageRead($message));
+        /*
+         * Informer l'autre utilisateur en temps réel.
+         */
+        broadcast(
+            new MessageRead($message)
+        );
 
         return response()->json([
-            'message' => 'Message marqué comme lu.',
-            'data' => $message
+            'message' =>
+                'Message marqué comme lu.',
+
+            'data' =>
+                $message
         ]);
     }
 
     /**
-     * Marquer tous les messages reçus d'une conversation comme lus.
+     * Marquer tous les messages reçus
+     * d'une conversation comme lus.
      */
     public function markConversationAsRead(
         Request $request,
         Conversation $conversation
     ) {
-        // Vérifier que l'utilisateur appartient à la conversation
-        if (
-            $conversation->user_id !== $request->user()->id &&
-            $conversation->admin_id !== $request->user()->id
-        ) {
+        $userId = $request->user()->id;
+
+        /*
+         * Vérifier que l'utilisateur participe
+         * à la conversation.
+         */
+        if (!$this->isParticipant($conversation, $userId)) {
             return response()->json([
-                'message' => 'Vous n’avez pas accès à cette conversation.'
+                'message' =>
+                    'Vous n’avez pas accès à cette conversation.'
             ], 403);
         }
 
-        // Récupérer les messages non lus envoyés par l'autre utilisateur
+        /*
+         * Récupérer les messages non lus
+         * envoyés par les autres participants.
+         */
         $messages = Message::where(
             'conversation_id',
             $conversation->id
@@ -233,24 +333,34 @@ class MessageController extends Controller
             ->where(
                 'sender_id',
                 '!=',
-                $request->user()->id
+                $userId
             )
             ->whereNull('read_at')
             ->get();
 
-        // Marquer chaque message comme lu
+        /*
+         * Marquer chaque message comme lu.
+         */
         foreach ($messages as $message) {
+
             $message->update([
                 'read_at' => now(),
             ]);
 
-            // Diffuser le changement en temps réel
-            broadcast(new MessageRead($message));
+            /*
+             * Diffuser le changement en temps réel.
+             */
+            broadcast(
+                new MessageRead($message)
+            );
         }
 
         return response()->json([
-            'message' => 'Tous les messages ont été marqués comme lus.',
-            'count' => $messages->count()
+            'message' =>
+                'Tous les messages ont été marqués comme lus.',
+
+            'count' =>
+                $messages->count()
         ]);
     }
 
@@ -261,42 +371,68 @@ class MessageController extends Controller
         Request $request,
         Message $message
     ) {
-        // Vérifier que l'utilisateur appartient à la conversation
-        if (
-            $message->conversation->user_id !== $request->user()->id &&
-            $message->conversation->admin_id !== $request->user()->id
-        ) {
+        $userId = $request->user()->id;
+
+        /*
+         * Récupérer la conversation.
+         */
+        $conversation = $message->conversation;
+
+        /*
+         * Vérifier que l'utilisateur participe
+         * à la conversation.
+         */
+        if (!$this->isParticipant($conversation, $userId)) {
             return response()->json([
-                'message' => 'Vous n’avez pas accès à ce message.'
+                'message' =>
+                    'Vous n’avez pas accès à ce message.'
             ], 403);
         }
 
-        // Un utilisateur normal ne peut supprimer
-        // que ses propres messages.
+        /*
+         * Un utilisateur normal ne peut supprimer
+         * que ses propres messages.
+         *
+         * L'administrateur conserve son privilège
+         * actuel de suppression.
+         */
         if (
             $request->user()->role !== 'admin' &&
-            $message->sender_id !== $request->user()->id
+            $message->sender_id !== $userId
         ) {
             return response()->json([
-                'message' => 'Vous ne pouvez supprimer que vos propres messages.'
+                'message' =>
+                    'Vous ne pouvez supprimer que vos propres messages.'
             ], 403);
         }
 
-        // Garder les informations avant suppression
-        $messageId = $message->id;
-        $conversationId = $message->conversation_id;
+        /*
+         * Garder les informations avant suppression.
+         */
+        $messageId =
+            $message->id;
 
-        // Supprimer le message
+        $conversationId =
+            $message->conversation_id;
+
+        /*
+         * Supprimer le message.
+         */
         $message->delete();
 
-        // Informer les utilisateurs en temps réel
-        broadcast(new MessageDeleted(
-            $messageId,
-            $conversationId
-        ));
+        /*
+         * Informer les utilisateurs en temps réel.
+         */
+        broadcast(
+            new MessageDeleted(
+                $messageId,
+                $conversationId
+            )
+        );
 
         return response()->json([
-            'message' => 'Message supprimé avec succès.'
+            'message' =>
+                'Message supprimé avec succès.'
         ]);
     }
 }
